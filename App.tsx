@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { LogBox } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AppNavigator from './src/navigation/AppNavigator';
 import { StorageProvider } from './src/database/StorageContext';
 import { initDB } from './src/database/db';
@@ -24,9 +25,11 @@ const App = () => {
   };
 
   return (
-    <StorageProvider>
-      <AppNavigator />
-    </StorageProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <StorageProvider>
+        <AppNavigator />
+      </StorageProvider>
+    </GestureHandlerRootView>
   );
 };
 
