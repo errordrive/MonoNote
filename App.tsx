@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { LogBox } from 'react-native';
 import AppNavigator from './src/navigation/AppNavigator';
+import { StorageProvider } from './src/database/StorageContext';
 import { initDB } from './src/database/db';
 
 // Ignore specific warnings
@@ -22,7 +23,11 @@ const App = () => {
     }
   };
 
-  return <AppNavigator />;
+  return (
+    <StorageProvider>
+      <AppNavigator />
+    </StorageProvider>
+  );
 };
 
 export default App;

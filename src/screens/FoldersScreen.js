@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,50 +8,41 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { getAllFolders, createFolder, deleteFolder } from '../database/folderModel';
-import { getNotesByFolder } from '../database/noteModel';
+import { useStorage } from '../database/StorageContext';
 
 const FoldersScreen = ({ navigation }) => {
+  const storage = useStorage();
   const [folders, setFolders] = useState([]);
   const [showInput, setShowInput] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
 
-  const loadFolders = async () => {
-    try {
-      const allFolders = await getAllFolders();
-      const foldersWithCount = await Promise.all(
-        allFolders.map(async (folder) => {
-          const notes = await getNotesByFolder(folder.id);
-          return { ...folder, noteCount: notes.length };
-        })
-      );
-      setFolders(foldersWithCount);
-    } catch (error) {
-      console.error('Error loading folders:', error);
-    }
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadFolders();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  const loadFolders = () => {
+    const allFolders = storage.getAllFolders();
+    // Count notes in each folder
+    const foldersWithCount = allFolders.map(folder => {
+      const notes = storage.getNotesByFolder(folder.id);
+      return { ...folder, noteCount: notes.length };
+    });
+    setFolders(foldersWithCount);
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      loadFolders();
-    }, [])
-  );
-
-  const handleCreateFolder = async () => {
+  const handleCreateFolder = () => {
     if (!newFolderName.trim()) {
       Alert.alert('Error', 'Please enter a folder name');
       return;
     }
 
-    try {
-      await createFolder(newFolderName);
-      setNewFolderName('');
-      setShowInput(false);
-      loadFolders();
-    } catch (error) {
-      console.error('Error creating folder:', error);
-    }
+    storage.createFolder(newFolderName);
+    setNewFolderName('');
+    setShowInput(false);
+    loadFolders();
   };
 
   const handleDeleteFolder = (id, name) => {
@@ -63,8 +54,8 @@ const FoldersScreen = ({ navigation }) => {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            await deleteFolder(id);
+          onPress: () => {
+            storage.deleteFolder(id);
             loadFolders();
           },
         },
@@ -75,10 +66,10 @@ const FoldersScreen = ({ navigation }) => {
   const renderFolder = ({ item }) => (
     <TouchableOpacity
       style={styles.folderCard}
-      onPress={() => navigation.navigate('FolderNotes', { 
-        folderId: item.id, 
-        folderName: item.name 
-      })}
+      onPress={() => {
+        // Navigate to folder notes view (future feature)
+        Alert.alert('Folder', `Opening ${item.name} (${item.noteCount} notes)`);
+      }}
       onLongPress={() => handleDeleteFolder(item.id, item.name)}
     >
       <Text style={styles.folderIcon}>📁</Text>

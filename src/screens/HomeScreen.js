@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,27 +6,26 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
-} from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { getAllNotes, deleteNote, togglePinNote } from '../database/noteModel';
+} from 'react';
+import { useStorage } from '../database/StorageContext';
 
 const HomeScreen = ({ navigation }) => {
+  const storage = useStorage();
   const [notes, setNotes] = useState([]);
 
-  const loadNotes = async () => {
-    try {
-      const allNotes = await getAllNotes();
-      setNotes(allNotes);
-    } catch (error) {
-      console.error('Error loading notes:', error);
-    }
-  };
-
-  useFocusEffect(
-    useCallback(() => {
+  useEffect(() => {
+    // Subscribe to navigation focus to refresh notes
+    const unsubscribe = navigation.addListener('focus', () => {
       loadNotes();
-    }, [])
-  );
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  const loadNotes = () => {
+    const allNotes = storage.getAllNotes();
+    setNotes(allNotes);
+  };
 
   const handleDeleteNote = (id) => {
     Alert.alert(
@@ -37,8 +36,8 @@ const HomeScreen = ({ navigation }) => {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            await deleteNote(id);
+          onPress: () => {
+            storage.deleteNote(id);
             loadNotes();
           },
         },
@@ -46,8 +45,8 @@ const HomeScreen = ({ navigation }) => {
     );
   };
 
-  const handleTogglePin = async (id, isPinned) => {
-    await togglePinNote(id, !isPinned);
+  const handleTogglePin = (id, isPinned) => {
+    storage.togglePinNote(id, !isPinned);
     loadNotes();
   };
 

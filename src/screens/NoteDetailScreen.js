@@ -7,9 +7,10 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { getNoteById, deleteNote, togglePinNote } from '../database/noteModel';
+import { useStorage } from '../database/StorageContext';
 
 const NoteDetailScreen = ({ navigation, route }) => {
+  const storage = useStorage();
   const [note, setNote] = useState(null);
 
   useEffect(() => {
@@ -18,12 +19,21 @@ const NoteDetailScreen = ({ navigation, route }) => {
     }
   }, [route.params?.noteId]);
 
-  const loadNote = async (id) => {
-    try {
-      const loadedNote = await getNoteById(id);
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (route.params?.noteId) {
+        loadNote(route.params.noteId);
+      }
+    });
+    return unsubscribe;
+  }, [navigation, route.params?.noteId]);
+
+  const loadNote = (id) => {
+    const loadedNote = storage.getNoteById(id);
+    if (loadedNote) {
       setNote(loadedNote);
-    } catch (error) {
-      console.error('Error loading note:', error);
+    } else {
+      navigation.goBack();
     }
   };
 
@@ -36,8 +46,8 @@ const NoteDetailScreen = ({ navigation, route }) => {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            await deleteNote(note.id);
+          onPress: () => {
+            storage.deleteNote(note.id);
             navigation.goBack();
           },
         },
@@ -45,8 +55,8 @@ const NoteDetailScreen = ({ navigation, route }) => {
     );
   };
 
-  const handleTogglePin = async () => {
-    await togglePinNote(note.id, !note.isPinned);
+  const handleTogglePin = () => {
+    storage.togglePinNote(note.id, !note.isPinned);
     loadNote(note.id);
   };
 

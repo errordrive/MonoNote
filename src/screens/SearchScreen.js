@@ -7,29 +7,22 @@ import {
   FlatList,
   TouchableOpacity,
 } from 'react-native';
-import { searchNotes } from '../database/noteModel';
+import { useStorage } from '../database/StorageContext';
 
 const SearchScreen = ({ navigation }) => {
+  const storage = useStorage();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
 
-  const handleSearch = async (text) => {
+  const handleSearch = (text) => {
     setQuery(text);
     if (text.trim().length < 2) {
       setResults([]);
-      setIsSearching(false);
       return;
     }
 
-    setIsSearching(true);
-    try {
-      const searchResults = await searchNotes(text);
-      setResults(searchResults);
-    } catch (error) {
-      console.error('Error searching notes:', error);
-    }
-    setIsSearching(false);
+    const searchResults = storage.searchNotes(text);
+    setResults(searchResults);
   };
 
   const renderNote = ({ item }) => (
@@ -71,7 +64,7 @@ const SearchScreen = ({ navigation }) => {
           <Text style={styles.emptyText}>Search your notes</Text>
           <Text style={styles.emptySubtext}>Enter at least 2 characters</Text>
         </View>
-      ) : results.length === 0 && !isSearching ? (
+      ) : results.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyIcon}>❌</Text>
           <Text style={styles.emptyText}>No results found</Text>

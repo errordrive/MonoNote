@@ -9,9 +9,10 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { createNote, updateNote, getNoteById } from '../database/noteModel';
+import { useStorage } from '../database/StorageContext';
 
 const CreateNoteScreen = ({ navigation, route }) => {
+  const storage = useStorage();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -25,35 +26,26 @@ const CreateNoteScreen = ({ navigation, route }) => {
     }
   }, [route.params?.noteId]);
 
-  const loadNote = async (id) => {
-    try {
-      const note = await getNoteById(id);
-      if (note) {
-        setTitle(note.title);
-        setContent(note.content || '');
-      }
-    } catch (error) {
-      console.error('Error loading note:', error);
+  const loadNote = (id) => {
+    const note = storage.getNoteById(id);
+    if (note) {
+      setTitle(note.title);
+      setContent(note.content || '');
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!title.trim()) {
       Alert.alert('Error', 'Please enter a title');
       return;
     }
 
-    try {
-      if (isEditing) {
-        await updateNote(noteId, title, content);
-      } else {
-        await createNote(title, content);
-      }
-      navigation.goBack();
-    } catch (error) {
-      console.error('Error saving note:', error);
-      Alert.alert('Error', 'Failed to save note');
+    if (isEditing) {
+      storage.updateNote(noteId, title, content);
+    } else {
+      storage.createNote(title, content);
     }
+    navigation.goBack();
   };
 
   return (
