@@ -1,101 +1,123 @@
-import { getDatabase } from './db';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const NOTES_KEY = '@mononote_notes';
+
+const getNotes = async () => {
+  try {
+    const notes = await AsyncStorage.getItem(NOTES_KEY);
+    return notes ? JSON.parse(notes) : [];
+  } catch (error) {
+    console.error('Error getting notes:', error);
+    return [];
+  }
+};
+
+const saveNotes = async (notes) => {
+  try {
+    await AsyncStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+  } catch (error) {
+    console.error('Error saving notes:', error);
+  }
+};
 
 export const createNote = async (title, content, folderId = null) => {
-  const db = getDatabase();
+  const notes = await getNotes();
   const now = Date.now();
   
-  const result = await db.executeSql(
-    `INSERT INTO notes (title, content, createdAt, updatedAt, folderId) VALUES (?, ?, ?, ?, ?)`,
-    [title, content, now, now, folderId]
-  );
+  const newNote = {
+    id: now,
+    title,
+    content,
+    createdAt: now,
+    updatedAt: now,
+    folderId,
+    isPinned: false,
+    isArchived: false,
+  };
   
-  return result[0].insertId;
+  notes.push(newNote);
+  await saveNotes(notes);
+  
+  return newNote.id;
 };
 
 export const getAllNotes = async () => {
-  const db = getDatabase();
-  const results = await db.executeSql(
-    `SELECT * FROM notes WHERE isArchived = 0 ORDER BY isPinned DESC, updatedAt DESC`
-  );
-  
-  const notes = [];
-  for (let i = 0; i < results[0].rows.length; i++) {
-    notes.push(results[0].rows.item(i));
-  }
-  
-  return notes;
+  const notes = await getNotes();
+  return notes
+    .filter(note => !note.isArchived)
+    .sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return b.updatedAt - a.updatedAt;
+    });
 };
 
 export const getNoteById = async (id) => {
-  const db = getDatabase();
-  const results = await db.executeSql(
-    `SELECT * FROM notes WHERE id = ?`,
-    [id]
-  );
-  
-  if (results[0].rows.length > 0) {
-    return results[0].rows.item(0);
-  }
-  return null;
+  const notes = await getNotes();
+  return notes.find(note => note.id === id) || null;
 };
 
 export const updateNote = async (id, title, content) => {
-  const db = getDatabase();
-  const now = Date.now();
+  const notes = await getNotes();
+  const index = notes.findIndex(note => note.id === id);
   
-  await db.executeSql(
-    `UPDATE notes SET title = ?, content = ?, updatedAt = ? WHERE id = ?`,
-    [title, content, now, id]
-  );
+  if (index !== -1) {
+    notes[index] = {
+      ...notes[index],
+      title,
+      content,
+      updatedAt: Date.now(),
+    };
+    await saveNotes(notes);
+  }
 };
 
 export const deleteNote = async (id) => {
-  const db = getDatabase();
-  await db.executeSql(`DELETE FROM notes WHERE id = ?`, [id]);
+  const notes = await getNotes();
+  const filtered = notes.filter(note => note.id !== id);
+  await saveNotes(filtered);
 };
 
 export const togglePinNote = async (id, isPinned) => {
-  const db = getDatabase();
-  await db.executeSql(
-    `UPDATE notes SET isPinned = ? WHERE id = ?`,
-    [isPinned ? 1 : 0, id]
-  );
+  const notes = await getNotes();
+  const index = notes.findIndex(note => note.id === id);
+  
+  if (index !== -1) {
+    notes[index].isPinned = isPinned;
+    await saveNotes(notes);
+  }
 };
 
 export const archiveNote = async (id) => {
-  const db = getDatabase();
-  await db.executeSql(
-    `UPDATE notes SET isArchived = 1 WHERE id = ?`,
-    [id]
-  );
+  const notes = await getNotes();
+  const index = notes.findIndex(note => note.id === id);
+  
+  if (index !== -1) {
+    notes[index].isArchived = true;
+    await saveNotes(notes);
+  }
 };
 
 export const searchNotes = async (query) => {
-  const db = getDatabase();
-  const results = await db.executeSql(
-    `SELECT * FROM notes WHERE isArchived = 0 AND (title LIKE ? OR content LIKE ?) ORDER BY updatedAt DESC`,
-    [`%${query}%`, `%${query}%`]
-  );
+  const notes = await getNotes();
+  const lowerQuery = query.toLowerCase();
   
-  const notes = [];
-  for (let i = 0; i < results[0].rows.length; i++) {
-    notes.push(results[0].rows.item(i));
-  }
-  
-  return notes;
+  return notes
+    .filter(note => 
+      !note.isArchived &&
+      (note.title.toLowerCase().includes(lowerQuery) ||
+       (note.content && note.content.toLowerCase().includes(lowerQuery)))
+    )
+    .sort((a, b) => b.updatedAt - a.updatedAt);
 };
 
 export const getNotesByFolder = async (folderId) => {
-  const db = getDatabase();
-  const results = await db.executeSql(
-    `SELECT * FROM notes WHERE folderId = ? AND isArchived = 0 ORDER BY isPinned DESC, updatedAt DESC`,
-    [folderId]
-  );
-  
-  const notes = [];
-  for (let i = 0; i < results[0].rows.length; i++) {
-    notes.push(results[0].rows.item(i));
-  }
-  
-  return notes;
+  const notes = await getNotes();
+  return notes
+    .filter(note => note.folderId === folderId && !note.isArchived)
+    .sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return b.updatedAt - a.updatedAt;
+    });
 };
